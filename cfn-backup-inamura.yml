@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Backup Setting
+# ------------------------------------------------------------#
+#  InputParameters
+# ------------------------------------------------------------#
+Parameters:
+  MyBackupName:
+    Description: Backup plan name
+    Type: String
+    Default: Backup-inamura
+  Cron:
+    Description: type the cron.
+    Type: String
+    Default: cron(0 0 * * ? *)
+  TagKey:
+    Description: TagKey for backup
+    Type: String
+    Default: Backup
+  TagValue:
+    Description: TagValue for backup
+    Type: String
+    Default: True
+# ------------------------------------------------------------#
+#  Resources
+# ------------------------------------------------------------#
+Resources:
+  BackupVault:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: !Sub ${MyBackupName}-vault
+  BackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties: 
+      BackupPlan: 
+        BackupPlanName: !Ref MyBackupName
+        BackupPlanRule: 
+          - RuleName: !Sub ${MyBackupName}-rule
+            TargetBackupVault: !Ref BackupVault
+            ScheduleExpression: !Ref Cron
+            CompletionWindowMinutes: 720
+            StartWindowMinutes: 60
+            Lifecycle:
+              DeleteAfterDays: 7
+  BackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref BackupPlan
+      BackupSelection:
+        SelectionName: !Ref MyBackupName
+        IamRoleArn: !GetAtt BackupIAMrole.Arn
+        ListOfTags:
+          - ConditionType: "STRINGEQUALS"
+            ConditionKey: !Ref TagKey
+            ConditionValue: !Ref TagValue
+  BackupIAMrole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ${MyBackupName}-Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: backup.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+      - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
+      Path: "/service-role/"
