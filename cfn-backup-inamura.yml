@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS Backup Setting
+Description: Create AWS Backup
+
 # ------------------------------------------------------------#
 #  InputParameters
 # ------------------------------------------------------------#
