@@ -1,0 +1,262 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:
+  Create NetWork EC2 SSM
+# ------------------------------------------------------------#
+#  Metadata
+# ------------------------------------------------------------#
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "VPC Configuration"
+        Parameters:
+          - Name
+          - VPCCIDR
+          - PrivateSubnetCIDR
+      - Label:
+          default: "EC2 Configuration"
+        Parameters:
+          - AMIId
+          - InstanceType
+          - KeyPair
+      - Label:
+          default: "Tags"
+        Parameters:
+          - UserName
+# ------------------------------------------------------------#
+#  InputParameters
+# ------------------------------------------------------------#
+Parameters:
+  Name:
+    Type: String
+    Default: cfn-inamura
+
+  VPCCIDR:
+    Type: String
+    Default: 192.168.0.0/16
+
+  PrivateSubnetCIDR:
+    Type: String
+    Default: 192.168.0.0/24
+
+  AMIId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-windows-latest/Windows_Server-2016-Japanese-Full-Base
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+
+  KeyPair:
+    Type: String
+    Default: inamura
+  
+  UserName:
+    Type: String
+    Default: inamura
+
+# ------------------------------------------------------------#
+#  Resources
+# ------------------------------------------------------------#
+Resources:
+# ------------------------------------------------------------#
+#  VPC
+# ------------------------------------------------------------#
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-VPC
+        - Key: User
+          Value: !Ref UserName
+# ------------------------------------------------------------#
+#  Subnet
+# ------------------------------------------------------------#
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-PrivateSubnet
+        - Key: User
+          Value: !Ref UserName
+# ------------------------------------------------------------#
+#  RouteTable
+# ------------------------------------------------------------#
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-PrivateRouteTable
+        - Key: User
+          Value: !Ref UserName
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+# ------------------------------------------------------------#
+#  Endpoint
+# ------------------------------------------------------------#
+  EndpointSSM:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      SubnetIds:
+        - !Ref PrivateSubnet
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+
+  EndpointSSMMessages:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      SubnetIds:
+        - !Ref PrivateSubnet
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+
+  EndpointEC2Messages:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      SubnetIds:
+        - !Ref PrivateSubnet
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+# ------------------------------------------------------------#
+#  Endpoint SG
+# ------------------------------------------------------------#
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EndpointSecurityGroup
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-EndpointSecurityGroup
+        - Key: User
+          Value: !Ref UserName
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VPCCIDR
+
+# ------------------------------------------------------------#
+#  EC2
+# ------------------------------------------------------------#
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref PrivateSubnet
+      ImageId: !Ref AMIId
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      KeyName: !Ref KeyPair
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-EC2Instance
+        - Key: User
+          Value: !Ref UserName
+        - Key: Backup
+          Value: true
+# ------------------------------------------------------------#
+#  EC2 Role
+# ------------------------------------------------------------#
+  EC2IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Name}-SSM-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: EC2IAMRole
+      InstanceProfileName: !Sub ${Name}-EC2InstanceProfile
+# ------------------------------------------------------------#
+#  EC2 SG
+# ------------------------------------------------------------#
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2SecurityGroup
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name}-EC2SecurityGroup
+        - Key: User
+          Value: !Ref UserName
+# ------------------------------------------------------------#
+#  Outputs
+# ------------------------------------------------------------#
+Outputs:
+  VPC:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${Name}-VPC
+
+  VPCCIDR:
+    Value: !Ref VPCCIDR
+    Export:
+      Name: !Sub ${Name}-VPCCIDR
+
+  PrivateSubnet:
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub ${Name}-PrivateSubnet
+
+  EndpointSSM:
+    Value: !Ref EndpointSSM
+    Export:
+      Name: !Sub ${Name}-EndpointSSM
+
+  EndpointSSMMessages:
+    Value: !Ref EndpointSSMMessages
+    Export:
+      Name: !Sub ${Name}-EndpointSSMMessages
+
+  EndpointEC2Messages:
+    Value: !Ref EndpointEC2Messages
+    Export:
+      Name: !Sub ${Name}-EndpointEC2Messages
+
+  EC2Instance:
+    Value: !Ref EC2Instance
+    Export:
+      Name: !Sub ${Name}-EC2Instance
