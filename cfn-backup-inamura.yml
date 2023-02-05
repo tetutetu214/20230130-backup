@@ -1,5 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Create AWS Backup
+# ------------------------------------------------------------#
+#  Metadata
+# ------------------------------------------------------------#
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "AWS Backup Configuration"
+        Parameters:
+        - MyBackupName
+        - Cron
+        - TagKey
+        - TagValue
 
 # ------------------------------------------------------------#
 #  InputParameters
@@ -12,7 +25,7 @@ Parameters:
   Cron:
     Description: type the cron.
     Type: String
-    Default: cron(0 0 * * ? *)
+    Default: cron(20 7 * * ? *)
   TagKey:
     Description: TagKey for backup
     Type: String
@@ -25,15 +38,26 @@ Parameters:
 #  Resources
 # ------------------------------------------------------------#
 Resources:
+# ------------------------------------------------------------#
+#  BackupVault
+# ------------------------------------------------------------#
   BackupVault:
     Type: "AWS::Backup::BackupVault"
     Properties:
       BackupVaultName: !Sub ${MyBackupName}-vault
+# ------------------------------------------------------------#
+#  BackupPlane
+# ------------------------------------------------------------#
   BackupPlan:
     Type: AWS::Backup::BackupPlan
     Properties: 
       BackupPlan: 
         BackupPlanName: !Ref MyBackupName
+        AdvancedBackupSettings:
+          -
+            ResourceType: EC2
+            BackupOptions:
+              WindowsVSS: disabled
         BackupPlanRule: 
           - RuleName: !Sub ${MyBackupName}-rule
             TargetBackupVault: !Ref BackupVault
@@ -41,7 +65,10 @@ Resources:
             CompletionWindowMinutes: 720
             StartWindowMinutes: 60
             Lifecycle:
-              DeleteAfterDays: 7
+              DeleteAfterDays: 2
+# ------------------------------------------------------------#
+#  BackupSelection
+# ------------------------------------------------------------#
   BackupSelection:
     Type: AWS::Backup::BackupSelection
     Properties:
@@ -53,6 +80,9 @@ Resources:
           - ConditionType: "STRINGEQUALS"
             ConditionKey: !Ref TagKey
             ConditionValue: !Ref TagValue
+# ------------------------------------------------------------#
+#  IAM Role 
+# ------------------------------------------------------------#
   BackupIAMrole:
     Type: AWS::IAM::Role
     Properties:
