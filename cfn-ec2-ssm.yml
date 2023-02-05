@@ -106,63 +106,6 @@ Resources:
       SubnetId: !Ref PrivateSubnet
       RouteTableId: !Ref PrivateRouteTable
 # ------------------------------------------------------------#
-#  Endpoint
-# ------------------------------------------------------------#
-  EndpointSSM:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroup
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
-      SubnetIds:
-        - !Ref PrivateSubnet
-      VpcEndpointType: Interface
-      VpcId: !Ref VPC
-
-  EndpointSSMMessages:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroup
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
-      SubnetIds:
-        - !Ref PrivateSubnet
-      VpcEndpointType: Interface
-      VpcId: !Ref VPC
-
-  EndpointEC2Messages:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroup
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
-      SubnetIds:
-        - !Ref PrivateSubnet
-      VpcEndpointType: Interface
-      VpcId: !Ref VPC
-# ------------------------------------------------------------#
-#  Endpoint SG
-# ------------------------------------------------------------#
-  EndpointSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: EndpointSecurityGroup
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${Name}-EndpointSecurityGroup
-        - Key: User
-          Value: !Ref UserName
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Ref VPCCIDR
-
-# ------------------------------------------------------------#
 #  EC2
 # ------------------------------------------------------------#
   EC2Instance:
@@ -240,21 +183,6 @@ Outputs:
     Value: !Ref PrivateSubnet
     Export:
       Name: !Sub ${Name}-PrivateSubnet
-
-  EndpointSSM:
-    Value: !Ref EndpointSSM
-    Export:
-      Name: !Sub ${Name}-EndpointSSM
-
-  EndpointSSMMessages:
-    Value: !Ref EndpointSSMMessages
-    Export:
-      Name: !Sub ${Name}-EndpointSSMMessages
-
-  EndpointEC2Messages:
-    Value: !Ref EndpointEC2Messages
-    Export:
-      Name: !Sub ${Name}-EndpointEC2Messages
 
   EC2Instance:
     Value: !Ref EC2Instance
