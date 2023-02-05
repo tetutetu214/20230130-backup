@@ -25,7 +25,7 @@ Parameters:
   Cron:
     Description: type the cron.
     Type: String
-    Default: cron(40 7 * * ? *)
+    Default: cron(15 12 * * ? *)
   TagKey:
     Description: TagKey for backup
     Type: String
